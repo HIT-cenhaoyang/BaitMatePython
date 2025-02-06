@@ -1,6 +1,5 @@
 import io
 
-import psycopg2
 from flask import Flask, jsonify, abort, request
 
 from keras.src.layers import BatchNormalization
@@ -36,7 +35,7 @@ def predict(img):
     results = []
 
     for i in x:
-        results.append((class_name[i], float(answer[0][i]) * 100))
+        results.append(( int(i), class_name[i], float(answer[0][i]) * 100))
         print("{className}: {predVal:.2f}%".format(className=class_name[i], predVal=float(answer[0][i]) * 100))
 
     return results
