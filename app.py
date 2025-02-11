@@ -1,5 +1,6 @@
 import base64
 import io
+import os
 
 from flask import Flask, jsonify, request
 
@@ -9,9 +10,35 @@ from tensorflow.keras.preprocessing.image import img_to_array
 import numpy as np
 from PIL import Image
 from ultralytics import YOLO
+import gdown
 
 app = Flask(__name__)
 yolo_model = YOLO("yolov8n.pt")
+
+MODEL_PATH = './static/FishModelClassifier_V6.h5'
+GOOGLE_DRIVE_URL = 'https://drive.google.com/uc?id=1fvjup1ZB4sAP58EluwOWhLFXsxwAU0HZ'
+
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        print("Model file not found. Downloading from Google Drive...")
+        os.makedirs('./static', exist_ok=True)  # 确保 static 目录存在
+        gdown.download(GOOGLE_DRIVE_URL, MODEL_PATH, quiet=False)
+        print("Model file downloaded successfully.")
+    else:
+        print("Model file already exists.")
+
+def load_model_with_fallback():
+    try:
+        model = load_model(MODEL_PATH, compile=False, custom_objects={'BatchNormalization': BatchNormalization})
+        return model
+    except OSError as e:
+        print(f"Error loading model: {e}")
+        print("Attempting to re-download the model file...")
+        if os.path.exists(MODEL_PATH):
+            os.remove(MODEL_PATH)
+        download_model()
+        model = load_model(MODEL_PATH, compile=False, custom_objects={'BatchNormalization': BatchNormalization})
+        return model
 
 def resize_image(image, target_size=(224, 224)):
     image = image.resize(target_size)
@@ -21,7 +48,10 @@ def resize_image(image, target_size=(224, 224)):
     return image
 
 def predict(img):
-    model = load_model('./static/FishModelClassifier_V6.h5', compile=False, custom_objects={'BatchNormalization': BatchNormalization})
+    if not os.path.exists(MODEL_PATH):
+        download_model()
+
+    model = load_model_with_fallback()
     class_name = ['Bangus', 'Big Head Carp', 'Black Spotted Barb', 'Catfish', 'Climbing Perch', 'Fourfinger Threadfin',
                   'Freshwater Eel', 'Glass Perchlet', 'Goby', 'Gold Fish', 'Gourami', 'Grass Carp',
                   'Green Spotted Puffer',
@@ -79,4 +109,5 @@ def check_image():
 
 
 if __name__ == '__main__':
+    download_model()
     app.run(host='0.0.0.0', port=5000)
