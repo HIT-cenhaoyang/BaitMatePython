@@ -1,14 +1,17 @@
+import base64
 import io
 
-from flask import Flask, jsonify, abort, request
+from flask import Flask, jsonify, request
 
-from keras.src.layers import BatchNormalization
+from tensorflow.keras.layers import BatchNormalization
 from keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array
 import numpy as np
 from PIL import Image
+from ultralytics import YOLO
 
 app = Flask(__name__)
+yolo_model = YOLO("yolov8n.pt")
 
 def resize_image(image, target_size=(224, 224)):
     image = image.resize(target_size)
@@ -40,7 +43,18 @@ def predict(img):
 
     return results
 
-@app.route('/image/predict', methods=['POST'])
+def contains_fish(image_data):
+    results = yolo_model(image_data)
+
+    for result in results:
+        for box in result.boxes:
+            cls_id = int(box.cls)
+            class_name = yolo_model.names[cls_id]
+            if class_name == "fish":
+                return True
+    return False
+
+@app.route('/api/image/predict', methods=['POST'])
 def predict_fish():
     file = request.files['image']
     image_data = file.read()
@@ -48,5 +62,21 @@ def predict_fish():
     result = predict(image)
     return jsonify(result)
 
+
+@app.route('/api/image/check', methods=['POST'])
+def check_image():
+    if 'image' not in request.json:
+        return jsonify({"error": "No image uploaded"}), 400
+
+    image_b64 = request.json['image']
+    image_data = base64.b64decode(image_b64)
+    image = Image.open(io.BytesIO(image_data))
+
+    if contains_fish(image):
+        return jsonify({"status": "approved"})
+    else:
+        return jsonify({"status": "pending", "reason": "No Fish inside"})
+
+
 if __name__ == '__main__':
-    app.run()
+    app.run(host='0.0.0.0', port=5000)
