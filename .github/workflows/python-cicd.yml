@@ -1,0 +1,45 @@
+name: Python App CI/CD
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout source
+        uses: actions/checkout@v3
+
+      - name: 🔍 Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.9"
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Login to docker hub
+        run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
+
+      - name: Build docker image
+        run: docker build -t zzzhiye/baitmatepython .
+
+      - name: Publish image to docker hub
+        run: docker push zzzhiye/baitmatepython:latest
+
+  deploy:
+    needs: build
+    runs-on: [ self-hosted ]
+    steps:
+      - name: Pull Image from Docker Hub
+        run: docker pull zzzhiye/baitmatepython:latest
+
+      - name: Delete old container
+        run: docker rm -f baitmate-python
+
+      - name: Run Docker container
+        run: docker run -d -p 5000:5000 --restart=always --name baitmate-python zzzhiye/baitmatepython:latest
