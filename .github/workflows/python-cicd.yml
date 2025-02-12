@@ -26,20 +26,20 @@ jobs:
         run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
 
       - name: Build docker image
-        run: docker build -t zzzhiye/baitmatepython .
+        run: docker build -t maxcen/baitmatepython .
 
       - name: Publish image to docker hub
-        run: docker push zzzhiye/baitmatepython:latest
+        run: docker push maxcen/baitmatepython:latest
 
   deploy:
     needs: build
     runs-on: [ self-hosted ]
     steps:
       - name: Pull Image from Docker Hub
-        run: docker pull zzzhiye/baitmatepython:latest
+        run: docker pull maxcen/baitmatepython:latest
 
       - name: Delete old container
         run: docker rm -f baitmate-python
 
       - name: Run Docker container
-        run: docker run -d -p 5000:5000 --restart=always --name baitmate-python zzzhiye/baitmatepython:latest
+        run: docker run -d -p 5000:5000 --restart=always --name baitmate-python maxcen/baitmatepython:latest
