@@ -15,6 +15,8 @@ from gevent import pywsgi
 
 app = Flask(__name__)
 yolo_model = YOLO("yolov8n.pt")
+tf.config.threading.set_inter_op_parallelism_threads(1)
+tf.config.threading.set_intra_op_parallelism_threads(1)
 
 MODEL_PATH = './static/FishModelClassifier_V6.h5'
 GOOGLE_DRIVE_URL = 'https://drive.google.com/uc?id=1fvjup1ZB4sAP58EluwOWhLFXsxwAU0HZ'

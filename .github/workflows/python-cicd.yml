@@ -42,4 +42,4 @@ jobs:
         run: docker rm -f baitmate-python
 
       - name: Run Docker container
-        run: docker run -d -p 5000:5000 --restart=always --name baitmate-python maxcen/baitmatepython:latest
+        run: docker run -d -p 5000:5000 --restart=always --memory-swap=4g --name baitmate-python maxcen/baitmatepython:latest
