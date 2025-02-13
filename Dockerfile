@@ -11,6 +11,12 @@ COPY . .
 RUN conda create --name baitmate_env python=3.9 -y
 RUN conda run -n baitmate_env pip install -r requirements.txt
 
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libnvinfer7 libnvinfer-plugin7
+
+
 # 5️⃣ 确保 Conda 激活环境，并安装 TensorFlow
 # COPY tensorflow-2.10.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl /tmp/tensorflow.whl
 # RUN conda run -n baitmate_env pip install /tmp/tensorflow.whl && rm -rf /tmp/tensorflow.whl
