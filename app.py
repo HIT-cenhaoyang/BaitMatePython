@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image
 from ultralytics import YOLO
 import gdown
+from gevent import pywsgi
 
 app = Flask(__name__)
 yolo_model = YOLO("yolov8n.pt")
@@ -110,4 +111,5 @@ def check_image():
 
 if __name__ == '__main__':
     download_model()
-    app.run(host='0.0.0.0', port=5000)
+    server = pywsgi.WSGIServer(('0.0.0.0', 5000), app)
+    server.serve_forever()

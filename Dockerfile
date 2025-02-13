@@ -1,17 +1,19 @@
-FROM continuumio/miniconda3
+FROM python:3.9-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN conda create --name baitmate_env python=3.9 -y && \
-    conda run -n baitmate_env pip install -r requirements.txt
+COPY . .
 
 EXPOSE 5000
 
-CMD ["conda", "run", "--no-capture-output", "-n", "baitmate_env", "python", "app.py"]
+CMD ["uwsgi", "--ini", "uwsgi.ini"]
