@@ -12,6 +12,7 @@ from PIL import Image
 from ultralytics import YOLO
 import gdown
 from gevent import pywsgi
+import tensorflow as tf
 
 app = Flask(__name__)
 yolo_model = YOLO("yolov8n.pt")
