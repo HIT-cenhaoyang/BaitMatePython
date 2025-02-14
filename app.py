@@ -3,9 +3,6 @@ import io
 import os
 
 from flask import Flask, jsonify, request
-
-from tensorflow.keras.layers import BatchNormalization
-from keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array
 import numpy as np
 from PIL import Image
@@ -19,8 +16,8 @@ yolo_model = YOLO("yolov8n.pt")
 tf.config.threading.set_inter_op_parallelism_threads(1)
 tf.config.threading.set_intra_op_parallelism_threads(1)
 
-MODEL_PATH = './static/FishModelClassifier_V6.h5'
-GOOGLE_DRIVE_URL = 'https://drive.google.com/uc?id=1fvjup1ZB4sAP58EluwOWhLFXsxwAU0HZ'
+MODEL_PATH = './static/FishModelClassifier_V6.tflite'
+GOOGLE_DRIVE_URL = 'https://drive.google.com/uc?id=10GeQtSWnextXzLuIAfc9c81cykvLkEVj'
 
 def download_model():
     if not os.path.exists(MODEL_PATH):
@@ -33,16 +30,13 @@ def download_model():
 
 def load_model_with_fallback():
     try:
-        model = load_model(MODEL_PATH, compile=False, custom_objects={'BatchNormalization': BatchNormalization})
-        return model
-    except OSError as e:
-        print(f"Error loading model: {e}")
-        print("Attempting to re-download the model file...")
-        if os.path.exists(MODEL_PATH):
-            os.remove(MODEL_PATH)
-        download_model()
-        model = load_model(MODEL_PATH, compile=False, custom_objects={'BatchNormalization': BatchNormalization})
-        return model
+        # 加载 TFLite 模型
+        interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+        interpreter.allocate_tensors()
+        return interpreter
+    except Exception as e:
+        print(f"Error loading TFLite model: {e}")
+        return None
 
 def resize_image(image, target_size=(224, 224)):
     image = image.resize(target_size)
@@ -55,7 +49,24 @@ def predict(img):
     if not os.path.exists(MODEL_PATH):
         download_model()
 
-    model = load_model_with_fallback()
+    interpreter = load_model_with_fallback()
+    if interpreter is None:
+        return []
+
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+
+    img = resize_image(img)
+    img = img_to_array(img)
+    img = img / 255
+    img = np.expand_dims(img, axis=0).astype(np.float32)
+
+    interpreter.set_tensor(input_details[0]["index"], img)
+
+    interpreter.invoke()
+
+    output_data = interpreter.get_tensor(output_details[0]["index"])
+
     class_name = ['Bangus', 'Big Head Carp', 'Black Spotted Barb', 'Catfish', 'Climbing Perch', 'Fourfinger Threadfin',
                   'Freshwater Eel', 'Glass Perchlet', 'Goby', 'Gold Fish', 'Gourami', 'Grass Carp',
                   'Green Spotted Puffer',
@@ -63,17 +74,12 @@ def predict(img):
                   'Long-Snouted Pipefish',
                   'Mosquito Fish', 'Mudfish', 'Mullet', 'Pangasius', 'Perch', 'Scat Fish', 'Silver Barb', 'Silver Carp',
                   'Silver Perch', 'Snakehead', 'Tenpounder', 'Tilapia']
-    img = resize_image(img)
-    img = img_to_array(img)
-    img = img / 255  # rgb is 255
-    img = np.expand_dims(img, [0])
-    answer = model.predict(img)
-    x = list(np.argsort(answer[0])[::-1][:5])
+    x = list(np.argsort(output_data[0])[::-1][:5])
     results = []
 
     for i in x:
-        results.append(( int(i), class_name[i], float(answer[0][i]) * 100))
-        print("{className}: {predVal:.2f}%".format(className=class_name[i], predVal=float(answer[0][i]) * 100))
+        results.append((int(i), class_name[i], float(output_data[0][i]) * 100))
+        print("{className}: {predVal:.2f}%".format(className=class_name[i], predVal=float(output_data[0][i]) * 100))
 
     return results
 
@@ -96,7 +102,6 @@ def predict_fish():
     result = predict(image)
     return jsonify(result)
 
-
 @app.route('/api/image/check', methods=['POST'])
 def check_image():
     if 'image' not in request.json:
@@ -110,7 +115,6 @@ def check_image():
         return jsonify({"status": "approved"})
     else:
         return jsonify({"status": "pending", "reason": "No Fish inside"})
-
 
 if __name__ == '__main__':
     download_model()
