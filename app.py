@@ -12,7 +12,7 @@ from gevent import pywsgi
 import tensorflow as tf
 
 app = Flask(__name__)
-yolo_model = YOLO("yolov8n.pt")
+yolo_model = YOLO("./static/fish_yolo.pt")
 tf.config.threading.set_inter_op_parallelism_threads(1)
 tf.config.threading.set_intra_op_parallelism_threads(1)
 
@@ -22,7 +22,7 @@ GOOGLE_DRIVE_URL = 'https://drive.google.com/uc?id=10GeQtSWnextXzLuIAfc9c81cykvL
 def download_model():
     if not os.path.exists(MODEL_PATH):
         print("Model file not found. Downloading from Google Drive...")
-        os.makedirs('./static', exist_ok=True)  # 确保 static 目录存在
+        os.makedirs('./static', exist_ok=True)
         gdown.download(GOOGLE_DRIVE_URL, MODEL_PATH, quiet=False)
         print("Model file downloaded successfully.")
     else:
@@ -30,7 +30,6 @@ def download_model():
 
 def load_model_with_fallback():
     try:
-        # 加载 TFLite 模型
         interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
         interpreter.allocate_tensors()
         return interpreter
@@ -85,14 +84,21 @@ def predict(img):
 
 def contains_fish(image_data):
     results = yolo_model(image_data)
+    fish_detections = []
 
     for result in results:
         for box in result.boxes:
             cls_id = int(box.cls)
             class_name = yolo_model.names[cls_id]
+            confidence = float(box.conf)
             if class_name == "fish":
-                return True
-    return False
+                fish_detections.append({
+                    "class_name": class_name,
+                    "confidence": confidence,
+                    "bbox": box.xyxy.tolist()[0]
+                })
+
+    return fish_detections
 
 @app.route('/api/image/predict', methods=['POST'])
 def predict_fish():
@@ -111,10 +117,29 @@ def check_image():
     image_data = base64.b64decode(image_b64)
     image = Image.open(io.BytesIO(image_data))
 
-    if contains_fish(image):
-        return jsonify({"status": "approved"})
+    fish_detections = contains_fish(image)
+    if fish_detections:
+        max_confidence = max(d['confidence'] for d in fish_detections)
+        avg_confidence = sum(d['confidence'] for d in fish_detections) / len(fish_detections)
+        return jsonify({
+            "status": "approved",
+            "fish_detected": True,
+            "confidence": {
+                "max": max_confidence,
+                "average": avg_confidence
+            },
+            "detections": fish_detections
+        })
     else:
-        return jsonify({"status": "pending", "reason": "No Fish inside"})
+        return jsonify({
+            "status": "pending",
+            "fish_detected": False,
+            "confidence": {
+                "max":0.0,
+                "average": 0.0
+            },
+            "detections": []
+        })
 
 if __name__ == '__main__':
     download_model()
