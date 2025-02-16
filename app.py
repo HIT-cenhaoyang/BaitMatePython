@@ -77,7 +77,7 @@ def predict(img):
     results = []
 
     for i in x:
-        results.append((int(i), class_name[i], float(output_data[0][i]) * 100))
+        results.append((int(i+1), class_name[i], float(output_data[0][i]) * 100))
         print("{className}: {predVal:.2f}%".format(className=class_name[i], predVal=float(output_data[0][i]) * 100))
 
     return results
